@@ -23,6 +23,7 @@ obj-y += wait.o swait.o completion.o idle.o sched_avg.o
 obj-y += wait.o completion.o idle.o
 >>>>>>> 75c716d14dd6 (sched: Remove HMP scheduling and core_ctl)
 obj-$(CONFIG_SMP) += cpupri.o cpudeadline.o energy.o
+obj-$(CONFIG_SCHED_WALT) += walt.o
 obj-$(CONFIG_SCHED_AUTOGROUP) += auto_group.o
 obj-$(CONFIG_SCHEDSTATS) += stats.o
 obj-$(CONFIG_SCHED_DEBUG) += debug.o
