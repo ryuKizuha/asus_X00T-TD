@@ -1073,6 +1073,9 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 //		trace_cluster_enter(cluster->cluster_name, idx,
 //			cluster->num_children_in_sync.bits[0],
 //			cluster->child_cpus.bits[0], from_idle);
+		trace_cluster_enter(cluster->cluster_name, idx,
+			cluster->num_children_in_sync.bits[0],
+			cluster->child_cpus.bits[0], from_idle);
 		lpm_stats_cluster_enter(cluster->stats, idx);
 
 		if (from_idle && lpm_prediction)
@@ -1275,6 +1278,9 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 //	trace_cluster_exit(cluster->cluster_name, cluster->last_level,
 //			cluster->num_children_in_sync.bits[0],
 //			cluster->child_cpus.bits[0], from_idle);
+	trace_cluster_exit(cluster->cluster_name, cluster->last_level,
+			cluster->num_children_in_sync.bits[0],
+			cluster->child_cpus.bits[0], from_idle);
 
 	last_level = cluster->last_level;
 	cluster->last_level = cluster->default_level;
@@ -1920,6 +1926,7 @@ enum msm_pm_l2_scm_flag lpm_cpu_pre_pc_cb(unsigned int cpu)
 	 */
 unlock_and_return:
 //	trace_pre_pc_cb(retflag);
+	trace_pre_pc_cb(retflag);
 	remote_spin_lock_rlock_id(&scm_handoff_lock,
 				  REMOTE_SPINLOCK_TID_START + cpu);
 	spin_unlock(&cluster->sync_lock);
