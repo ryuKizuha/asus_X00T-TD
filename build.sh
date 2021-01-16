@@ -10,7 +10,7 @@ export KBUILD_BUILD_HOST=ndeooo.xyz
 
 export TOOLCHAIN=gcc
 
-export DEVICES=X00T/TD
+export DEVICES=X00T
 
 source helper
 

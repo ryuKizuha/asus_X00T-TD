@@ -97,7 +97,7 @@ build(){
 	then
 		make_build "lithium-X00T_defconfig"
 	else
-		make_build "X00T_stock-defconfig"
+		make_build "lithium-X00T_defconfig"
 	fi
 		mkzip "$KERNELNAME-$LOCALVERSION-${1}${2}${3}-$DATE.zip"
 }
