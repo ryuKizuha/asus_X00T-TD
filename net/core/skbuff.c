@@ -426,16 +426,10 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
 
 	len += NET_SKB_PAD;
 
-<<<<<<< HEAD
 	if (IS_ENABLED(CONFIG_FORCE_ALLOC_FROM_DMA_ZONE))
 		gfp_mask |= GFP_DMA;
 
 	if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
-	/* If requested length is either too small or too big,
-	 * we use kmalloc() for skb->head allocation.
-	 */
-	if (len <= SKB_WITH_OVERHEAD(1024) ||
-	    len > SKB_WITH_OVERHEAD(PAGE_SIZE) ||
 	    (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA))) {
 		skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
 		if (!skb)
@@ -733,7 +727,7 @@ void kfree_skb(struct sk_buff *skb)
 		smp_rmb();
 	else if (likely(!atomic_dec_and_test(&skb->users)))
 		return;
-//	trace_kfree_skb(skb, __builtin_return_address(0));
+	trace_kfree_skb(skb, __builtin_return_address(0));
 	__kfree_skb(skb);
 }
 EXPORT_SYMBOL(kfree_skb);
@@ -785,7 +779,7 @@ void consume_skb(struct sk_buff *skb)
 		smp_rmb();
 	else if (likely(!atomic_dec_and_test(&skb->users)))
 		return;
-//	trace_consume_skb(skb);
+	trace_consume_skb(skb);
 	__kfree_skb(skb);
 }
 EXPORT_SYMBOL(consume_skb);
@@ -2683,7 +2677,9 @@ int skb_shift(struct sk_buff *tgt, struct sk_buff *skb, int shiftlen)
 	struct skb_frag_struct *fragfrom, *fragto;
 
 	BUG_ON(shiftlen > skb->len);
-	BUG_ON(skb_headlen(skb));	/* Would corrupt stream */
+
+	if (skb_headlen(skb))
+		return 0;
 
 	todo = shiftlen;
 	from = 0;
@@ -3817,10 +3813,18 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
 	if (!skb_may_tx_timestamp(sk, tsonly))
 		return;
 
-	if (tsonly)
-		skb = alloc_skb(0, GFP_ATOMIC);
-	else
+	if (tsonly) {
+#ifdef CONFIG_INET
+		if ((sk->sk_tsflags & SOF_TIMESTAMPING_OPT_STATS) &&
+		    sk->sk_protocol == IPPROTO_TCP &&
+		    sk->sk_type == SOCK_STREAM)
+			skb = tcp_get_timestamping_opt_stats(sk);
+		else
+#endif
+			skb = alloc_skb(0, GFP_ATOMIC);
+	} else {
 		skb = skb_clone(orig_skb, GFP_ATOMIC);
+	}
 	if (!skb)
 		return;
 
@@ -4331,7 +4335,7 @@ EXPORT_SYMBOL(skb_try_coalesce);
  */
 void skb_scrub_packet(struct sk_buff *skb, bool xnet)
 {
-	skb->tstamp = 0;
+	skb->tstamp.tv64 = 0;
 	skb->pkt_type = PACKET_HOST;
 	skb->skb_iif = 0;
 	skb->ignore_df = 0;
