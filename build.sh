@@ -2,11 +2,11 @@
 
 export KERNELNAME=Lithium
 
-export LOCALVERSION=-typeG+~
+export LOCALVERSION=typeH+~
 
 export KBUILD_BUILD_USER=zRyu
 
-export KBUILD_BUILD_HOST=ndeooo.xyz
+export KBUILD_BUILD_HOST=#FunProject
 
 export TOOLCHAIN=gcc
 
