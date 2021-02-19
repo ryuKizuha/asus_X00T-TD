@@ -17,11 +17,7 @@ endif
 
 obj-y += core.o loadavg.o clock.o cputime.o
 obj-y += idle_task.o fair.o rt.o deadline.o stop_task.o
-<<<<<<< HEAD
-obj-y += wait.o swait.o completion.o idle.o sched_avg.o
-=======
 obj-y += wait.o completion.o idle.o
->>>>>>> 75c716d14dd6 (sched: Remove HMP scheduling and core_ctl)
 obj-$(CONFIG_SMP) += cpupri.o cpudeadline.o energy.o
 obj-$(CONFIG_SCHED_WALT) += walt.o
 obj-$(CONFIG_SCHED_AUTOGROUP) += auto_group.o
