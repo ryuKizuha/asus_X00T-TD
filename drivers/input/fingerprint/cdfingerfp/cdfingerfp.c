@@ -15,7 +15,6 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/spinlock.h>
-#include <linux/sched.h>
 #include <linux/wakelock.h>
 #include <linux/kthread.h>
 #include <linux/cdev.h>
@@ -100,28 +99,6 @@ struct cdfinger_key_map {
 static int isInKeyMode; // key mode
 static int irq_flag;
 static int screen_status = 1; // screen on
-static u8 cdfinger_debug = 0x00;
-static char wake_flag = 0;
-#define CDFINGER_DBG(fmt, args...) \
-	do{ \
-		if(cdfinger_debug & 0x01) \
-		printk( "[DBG][cdfinger]:%5d: <%s>" fmt, __LINE__,__func__,##args ); \
-	}while(0)
-#define CDFINGER_ERR(fmt, args...) \
-	do{ \
-		printk( "[DBG][cdfinger]:%5d: <%s>" fmt, __LINE__,__func__,##args ); \
-	}while(0)
-
-
-#define FP_BOOST_MS   500
-#define FP_BOOST_INTERVAL   (500*USEC_PER_MSEC)
-
-static struct workqueue_struct *fp_boost_wq;
-
-static struct work_struct fp_boost_work;
-static struct delayed_work fp_boost_rem;
-static bool fp_boost_active=false;
-
 static u8 cdfinger_debug = 0x01;
 static char wake_flag;
 #define CDFINGER_DBG(fmt, args...)                                             \
@@ -370,10 +347,6 @@ static irqreturn_t cdfinger_eint_handler(int irq, void *dev_id)
 /* Huaqin modify for cpu_boost by leiyu at 2018/04/25 end */
 #endif
 	struct cdfingerfp_data *pdata = g_cdfingerfp_data;
-	if (pdata->irq_enable_status == 1)
-	{
-		fp_cpuboost();
-		cdfinger_wake_lock(pdata,1);
 	if (pdata->irq_enable_status == 1) {
 		cdfinger_wake_lock(pdata, 1);
 		cdfinger_async_report();
@@ -656,12 +629,6 @@ static int cdfinger_probe(struct platform_device *pdev)
 		cdfingerdev->cdfinger_input = NULL;
 		goto unregister_dev;
 	}
-	fp_boost_wq = alloc_workqueue("fp_cpuboost_wq", WQ_HIGHPRI, 0);
-	if (!fp_boost_wq)
-		return -EFAULT;
-	INIT_WORK(&fp_boost_work, do_fp_boost);
-	INIT_DELAYED_WORK(&fp_boost_rem, do_fp_boost_rem);
-	
 
 	cdfingerdev->notifier.notifier_call = cdfinger_fb_notifier_callback;
 	fb_register_client(&cdfingerdev->notifier);
@@ -714,5 +681,4 @@ module_exit(cdfinger_fp_exit);
 MODULE_DESCRIPTION("cdfinger spi Driver");
 MODULE_AUTHOR("cdfinger@cdfinger.com");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("cdfinger");
 MODULE_ALIAS("cdfinger");
