@@ -100,6 +100,10 @@ struct cpufreq_policy {
 	 * - Any routine that will write to the policy structure and/or may take away
 	 *   the policy altogether (eg. CPU hotplug), will hold this lock in write
 	 *   mode before doing so.
+	 *
+	 * Additional rules:
+	 * - Lock should not be held across
+	 *     __cpufreq_governor(data, CPUFREQ_GOV_POLICY_EXIT);
 	 */
 	struct rw_semaphore	rwsem;
 
@@ -122,9 +126,6 @@ struct cpufreq_policy {
 	 */
 	unsigned int		up_transition_delay_us;
 	unsigned int		down_transition_delay_us;
-
-	/* Boost switch for tasks with p->in_iowait set */
-	bool iowait_boost_enable;
 
 	 /* Cached frequency lookup from cpufreq_driver_resolve_freq. */
 	unsigned int cached_target_freq;
@@ -536,18 +537,6 @@ extern struct cpufreq_governor cpufreq_gov_sched;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL)
 extern struct cpufreq_governor cpufreq_gov_schedutil;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_schedutil)
-#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_CHILL)
-extern struct cpufreq_governor cpufreq_gov_chill;
-#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_chill)
-#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_RELAXED)
-extern struct cpufreq_governor cpufreq_gov_relaxed;
-#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_relaxed)
-#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ZZMOOVE)
-extern struct cpufreq_governor cpufreq_gov_zzmoove;
-#define CPUFREQ_DEFAULT_GOVERNOR       (&cpufreq_gov_zzmoove)
-#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_DARKNESS)
-extern struct cpufreq_governor cpufreq_gov_darkness;
-#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_darkness)
 #endif
 
 static inline void cpufreq_policy_apply_limits(struct cpufreq_policy *policy)
@@ -711,6 +700,5 @@ int cpufreq_generic_init(struct cpufreq_policy *policy,
 
 struct sched_domain;
 unsigned long cpufreq_scale_freq_capacity(struct sched_domain *sd, int cpu);
-unsigned long cpufreq_scale_max_freq_capacity(struct sched_domain *sd, int cpu);
-unsigned long cpufreq_scale_min_freq_capacity(struct sched_domain *sd, int cpu);
+unsigned long cpufreq_scale_max_freq_capacity(int cpu);
 #endif /* _LINUX_CPUFREQ_H */
