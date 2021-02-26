@@ -449,7 +449,7 @@ static int _cpu_down(unsigned int cpu, int tasks_frozen)
 
 out_release:
 	cpu_hotplug_done();
-//	trace_sched_cpu_hotplug(cpu, err, 0);
+	trace_sched_cpu_hotplug(cpu, err, 0);
 	if (!err)
 		cpu_notify_nofail(CPU_POST_DEAD | mod, hcpu);
 	arch_smt_update();
@@ -458,7 +458,15 @@ out_release:
 
 int cpu_down(unsigned int cpu)
 {
+	struct cpumask newmask;
 	int err;
+
+	cpumask_andnot(&newmask, cpu_online_mask, cpumask_of(cpu));
+
+	/* One big cluster CPU and one little cluster CPU must remain online */
+	if (!cpumask_intersects(&newmask, cpu_perf_mask) ||
+		!cpumask_intersects(&newmask, cpu_lp_mask))
+		return -EINVAL;
 
 	cpu_maps_update_begin();
 
@@ -556,8 +564,9 @@ out_notify:
 		__cpu_notify(CPU_UP_CANCELED | mod, hcpu, nr_calls, NULL);
 out:
 	cpu_hotplug_done();
-//	trace_sched_cpu_hotplug(cpu, ret, 1);
 	arch_smt_update();
+	trace_sched_cpu_hotplug(cpu, ret, 1);
+
 	return ret;
 }
 
@@ -641,6 +650,7 @@ int disable_nonboot_cpus(void)
 	int cpu, first_cpu, error = 0;
 
 	cpu_maps_update_begin();
+	unaffine_perf_irqs();
 	first_cpu = cpumask_first(cpu_online_mask);
 	/*
 	 * We take down all of the non-boot CPUs in one shot to avoid races
@@ -648,13 +658,13 @@ int disable_nonboot_cpus(void)
 	 */
 	cpumask_clear(frozen_cpus);
 
-	pr_debug("Disabling non-boot CPUs ...\n");
+	pr_info("Disabling non-boot CPUs ...\n");
 	for_each_online_cpu(cpu) {
 		if (cpu == first_cpu)
 			continue;
-//		trace_suspend_resume(TPS("CPU_OFF"), cpu, true);
+		trace_suspend_resume(TPS("CPU_OFF"), cpu, true);
 		error = _cpu_down(cpu, 1);
-//		trace_suspend_resume(TPS("CPU_OFF"), cpu, false);
+		trace_suspend_resume(TPS("CPU_OFF"), cpu, false);
 		if (!error)
 			cpumask_set_cpu(cpu, frozen_cpus);
 		else {
@@ -698,14 +708,14 @@ void enable_nonboot_cpus(void)
 	if (cpumask_empty(frozen_cpus))
 		goto out;
 
-	pr_debug("Enabling non-boot CPUs ...\n");
+	pr_info("Enabling non-boot CPUs ...\n");
 
 	arch_enable_nonboot_cpus_begin();
 
 	for_each_cpu(cpu, frozen_cpus) {
-//		trace_suspend_resume(TPS("CPU_ON"), cpu, true);
+		trace_suspend_resume(TPS("CPU_ON"), cpu, true);
 		error = _cpu_up(cpu, 1);
-//		trace_suspend_resume(TPS("CPU_ON"), cpu, false);
+		trace_suspend_resume(TPS("CPU_ON"), cpu, false);
 		if (!error) {
 			pr_debug("CPU%d is up\n", cpu);
 			cpu_device = get_cpu_device(cpu);
@@ -722,6 +732,7 @@ void enable_nonboot_cpus(void)
 	arch_enable_nonboot_cpus_end();
 
 	cpumask_clear(frozen_cpus);
+	reaffine_perf_irqs();
 out:
 	cpu_maps_update_done();
 }
@@ -857,6 +868,22 @@ static DECLARE_BITMAP(cpu_isolated_bits, CONFIG_NR_CPUS) __read_mostly;
 const struct cpumask *const cpu_isolated_mask = to_cpumask(cpu_isolated_bits);
 EXPORT_SYMBOL(cpu_isolated_mask);
 
+#if CONFIG_LITTLE_CPU_MASK
+static const unsigned long lp_cpu_bits = CONFIG_LITTLE_CPU_MASK;
+const struct cpumask *const cpu_lp_mask = to_cpumask(&lp_cpu_bits);
+#else
+const struct cpumask *const cpu_lp_mask = cpu_possible_mask;
+#endif
+EXPORT_SYMBOL(cpu_lp_mask);
+
+#if CONFIG_BIG_CPU_MASK
+static const unsigned long perf_cpu_bits = CONFIG_BIG_CPU_MASK;
+const struct cpumask *const cpu_perf_mask = to_cpumask(&perf_cpu_bits);
+#else
+const struct cpumask *const cpu_perf_mask = cpu_possible_mask;
+#endif
+EXPORT_SYMBOL(cpu_perf_mask);
+
 void set_cpu_possible(unsigned int cpu, bool possible)
 {
 	if (possible)
@@ -914,11 +941,6 @@ void init_cpu_online(const struct cpumask *src)
 	cpumask_copy(to_cpumask(cpu_online_bits), src);
 }
 
-void init_cpu_isolated(const struct cpumask *src)
-{
-	cpumask_copy(to_cpumask(cpu_isolated_bits), src);
-}
-
 enum cpu_mitigations cpu_mitigations = CPU_MITIGATIONS_AUTO;
 
 static int __init mitigations_parse_cmdline(char *arg)
@@ -934,6 +956,11 @@ static int __init mitigations_parse_cmdline(char *arg)
 	return 0;
 }
 early_param("mitigations", mitigations_parse_cmdline);
+
+void init_cpu_isolated(const struct cpumask *src)
+{
+	cpumask_copy(to_cpumask(cpu_isolated_bits), src);
+}
 
 static ATOMIC_NOTIFIER_HEAD(idle_notifier);
 
